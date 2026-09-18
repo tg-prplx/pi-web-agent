@@ -1,113 +1,148 @@
-<p align="center">
-  <a href="https://pi.dev">
-    <img alt="pi logo" src="https://pi.dev/logo-auto.svg" width="128">
-  </a>
-</p>
-<p align="center">
-  <a href="https://discord.com/invite/3cU7Bz4UPx"><img alt="Discord" src="https://img.shields.io/badge/discord-community-5865F2?style=flat-square&logo=discord&logoColor=white" /></a>
-  <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent"><img alt="npm" src="https://img.shields.io/npm/v/@earendil-works/pi-coding-agent?style=flat-square" /></a>
-</p>
+# Pi Web Agent
 
-> New issues and PRs from new contributors are auto-closed by default. Maintainers review auto-closed issues daily. See [CONTRIBUTING.md](CONTRIBUTING.md).
+A local browser interface for the [Pi coding agent](https://pi.dev). It keeps Pi's real RPC runtime, sessions, tools, provider configuration, and filesystem access, while replacing the terminal UI with a persistent web workspace.
 
-# Pi Agent Harness
+The browser is only the interface. Agent execution stays in local Pi processes.
 
-This is the home of the Pi agent harness project including our self extensible coding agent.
+## What works
 
-* **[@earendil-works/pi-coding-agent](packages/coding-agent)**: Interactive coding agent CLI
-* **[@earendil-works/pi-agent-core](packages/agent)**: Agent runtime with tool calling and state management
-* **[@earendil-works/pi-ai](packages/ai)**: Unified multi-provider LLM API (OpenAI, Anthropic, Google, …)
+- Persistent chats backed by native Pi session files
+- Separate workspace and agent process for each open chat
+- Streaming Markdown responses without rebuilding the whole conversation
+- Collapsible reasoning that closes when reasoning finishes
+- Live `read`, `write`, `edit`, `bash`, `grep`, `find`, and other tool cards
+- File previews with extension-aware syntax highlighting
+- Image upload and clipboard paste with automatic resizing
+- Model and thinking-level selection from the existing Pi configuration
+- Stop, steer, follow-up, compact, clone, fork, export, and session-tree controls
+- Foldable desktop navigation and a mobile chat drawer
+- Forwarding of Pi extension dialogs into the browser
 
-To learn more about Pi:
+## Requirements
 
-* [Visit pi.dev](https://pi.dev), the project website with demos
-* [Read the documentation](https://pi.dev/docs/latest), but you can also ask the agent to explain itself
+- Node.js 22.19 or newer
+- A working Pi provider configuration under `~/.pi/agent`
+- Provider credentials configured exactly as they are for the Pi CLI
 
-## All Packages
+## Quick start
 
-| Package | Description |
-|---------|-------------|
-| **[@earendil-works/pi-ai](packages/ai)** | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.) |
-| **[@earendil-works/pi-agent-core](packages/agent)** | Agent runtime with tool calling and state management |
-| **[@earendil-works/pi-coding-agent](packages/coding-agent)** | Interactive coding agent CLI |
-| **[@earendil-works/pi-tui](packages/tui)** | Terminal UI library with differential rendering |
+```bash
+git clone https://github.com/tg-prplx/pi-web-agent.git
+cd pi-web-agent
+npm ci --ignore-scripts
+npm run build:offline
+npm run web -- --cwd /absolute/path/to/your/project
+```
 
-For Slack/chat automation and workflows see [earendil-works/pi-chat](https://github.com/earendil-works/pi-chat).
+Open [http://127.0.0.1:4317](http://127.0.0.1:4317).
 
-## Permissions & Containerization
+Choose another port when needed:
 
-Pi does not include a built-in permission system for restricting filesystem, process, network, or credential access. By default, it runs with the permissions of the user and process that launched it.
+```bash
+npm run web -- --cwd /absolute/path/to/project --port 4400
+```
 
-If you need stronger boundaries, containerize or sandbox Pi. See [packages/coding-agent/docs/containerization.md](packages/coding-agent/docs/containerization.md) for three patterns:
+The server binds to `127.0.0.1` by default. Do not expose it to a public network: Pi runs tools with the permissions of the current operating-system user and the web server does not add an authentication layer.
 
-- **Gondolin extension**: keep `pi` and provider auth on the host while routing built-in tools and `!` commands into a local Linux micro-VM.
-- **Plain Docker**: run the whole `pi` process in a local container for simple isolation.
-- **OpenShell**: run the whole `pi` process in a policy-controlled sandbox.
+## How it is structured
 
-## Contributing
+```text
+Browser UI
+    │ HTTP + Server-Sent Events
+    ▼
+Local Pi Web server
+    │ JSON-lines RPC
+    ▼
+Pi coding-agent runtime
+    ├── provider and model configuration
+    ├── native Pi sessions
+    ├── filesystem and shell tools
+    └── extensions
+```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and [AGENTS.md](AGENTS.md) for project-specific rules (for both humans and agents).  Longer term plans for Pi can also be found in [RFCs](https://rfc.earendil.com/keyword/pi/).
+Credentials never need to be sent to the browser. The local server starts the RPC entry point from the bundled `@earendil-works/pi-coding-agent` workspace package and forwards structured events to the UI.
+
+## Interface
+
+### Chats and workspaces
+
+Every chat has a fixed working directory. Selecting **Change workspace** creates a new chat in the chosen directory so the original Pi session keeps a consistent filesystem context.
+
+Removing a chat only removes it from the web list. The underlying Pi JSONL session remains on disk.
+
+### Response controls
+
+- `Enter` sends a message; `Shift+Enter` inserts a new line.
+- While Pi is responding and the composer is empty, the send button becomes **Stop**.
+- Typing during a response enables **Steer** or **Follow-up** delivery.
+- `Cmd/Ctrl+K` opens the integrated Pi command palette.
+- `Cmd/Ctrl+N` creates a chat.
+
+### Images
+
+Images can be selected, dropped, or pasted. The browser reduces large inputs to at most 1536 pixels on either side and about one megapixel before sending them to Pi.
+
+Image attachment support does not make a text-only model multimodal. Select a model whose Pi metadata advertises image input when you need vision.
+
+### Agent activity
+
+Reasoning is open while it streams and folded after completion. Tool calls update in place, including partial command output and file content. File-based tools use the filename extension to select a highlighter.
+
+## Local data
+
+Web chat metadata is stored in:
+
+```text
+~/.pi/web-agent/chats.json
+```
+
+Override that directory with `PI_WEB_AGENT_DIR`. Native Pi sessions remain in Pi's normal session directory.
+
+## Configuration
+
+Pi Web uses the existing Pi configuration. Configure providers, API keys, models, extensions, prompts, and tools through the normal Pi files and commands; the web layer does not maintain a second credential store.
+
+Automatic model retry is disabled for new web chats by default to prevent repeated error loops. It can be enabled per chat under **Agent behavior**.
 
 ## Development
 
 ```bash
-npm install --ignore-scripts  # Install all dependencies without running lifecycle scripts
-npm run build         # Refresh model data, then build all packages
-npm run build:offline # Rebuild using existing model data without network access
-npm run check         # Lint, format, and type check
-./test.sh            # Run tests (skips LLM-dependent tests without API keys)
-./pi-test.sh         # Run pi from sources (can be run from any directory)
+# Build only the web package
+npm --workspace=@earendil-works/pi-web-agent run build
+
+# Run focused web tests
+cd packages/web
+node ../../node_modules/vitest/dist/cli.js --run test/presentation.test.ts
+
+# Repository checks
+cd ../..
+npm run check
 ```
 
-## Building standalone binaries from release source
+The web client is framework-free TypeScript. Static assets are produced by `packages/web/scripts/build.mjs`; the local HTTP/SSE server and Pi process manager live under `packages/web/src/server`.
 
-GitHub releases include a versioned source archive covered by the release's `SHA256SUMS` file. Extract it and run the same build script used for the official standalone binaries:
+## Troubleshooting
+
+### `Connection error`
+
+First verify the same model works in the Pi CLI. Pi Web uses the same provider configuration and network path. Then check:
 
 ```bash
-VERSION="<release-version>"
-tar -xzf "pi-${VERSION}-source.tar.gz"
-cd "pi-${VERSION}"
-./scripts/build-binaries.sh --offline-model-data --platform linux-x64 --out "$PWD/out"
+curl --fail http://127.0.0.1:4317/api/health
 ```
 
-The source archive includes the generated provider model data used for the release. `--offline-model-data` builds with that snapshot instead of refreshing it from live provider catalogs. The script still installs dependencies, builds the monorepo, compiles the Bun executable, and stages its runtime assets. Package maintainers who provide dependencies separately can pass `--skip-install --skip-deps`.
+If the health request works but the model does not, the failure is between Pi and the configured provider rather than between the browser and the local server.
 
-## Supply-chain hardening
+### The model cannot see an image
 
-We treat npm dependency changes as reviewed code changes.
+Select a vision-capable model. A text-only model may accept the chat request but will not receive image content from Pi.
 
-- Direct external dependencies are pinned to exact versions. Internal workspace packages remain version-ranged.
-- `.npmrc` sets `save-exact=true` and `min-release-age=2` to avoid same-day dependency releases during npm resolution.
-- `package-lock.json` is the dependency ground truth. Pre-commit blocks accidental lockfile commits unless `PI_ALLOW_LOCKFILE_CHANGE=1` is set.
-- `npm run check` verifies pinned direct deps, native TypeScript import compatibility, and the generated coding-agent shrinkwrap.
-- The published CLI package includes `packages/coding-agent/npm-shrinkwrap.json`, generated from the root lockfile, to pin transitive deps for npm users.
-- Release smoke tests use `npm run release:local` to build, pack, and create isolated npm and Bun installs outside the repo before tagging a release.
-- Local release installs, documented npm installs, and `pi update --self` use `--ignore-scripts` where supported.
-- CI installs with `npm ci --ignore-scripts`, and a scheduled GitHub workflow runs `npm audit --omit=dev` plus `npm audit signatures --omit=dev`.
-- Shrinkwrap generation has an explicit allowlist for dependency lifecycle scripts; new lifecycle-script deps fail checks until reviewed.
+### A workspace cannot be opened
 
-## Share your OSS coding agent sessions
+Use an existing absolute directory path. Pi Web deliberately does not create or guess project directories.
 
-If you use Pi or other coding agents for open source work, please share your sessions.
+## Upstream and license
 
-Public OSS session data helps improve coding agents with real-world tasks, tool use, failures, and fixes instead of toy benchmarks.
+This project is based on the Pi agent harness and keeps the upstream package layout so the browser UI can use the genuine Pi runtime. Upstream Pi documentation is available at [pi.dev](https://pi.dev).
 
-For the full explanation, see [this post on X](https://x.com/badlogicgames/status/2037811643774652911).
-
-To publish sessions, use [`badlogic/pi-share-hf`](https://github.com/badlogic/pi-share-hf). Read its README.md for setup instructions. All you need is a Hugging Face account, the Hugging Face CLI, and `pi-share-hf`.
-
-You can also watch [this video](https://x.com/badlogicgames/status/2041151967695634619), where I show how I publish my `pi-mono` sessions.
-
-I regularly publish my own `pi-mono` work sessions here:
-
-- [badlogicgames/pi-mono on Hugging Face](https://huggingface.co/datasets/badlogicgames/pi-mono)
-
-## License
-
-MIT
-
-<p align="center">
-  <a href="https://pi.dev">pi.dev</a> domain graciously donated by
-  <br /><br />
-  <a href="https://exe.dev"><img src="packages/coding-agent/docs/images/exy.png" alt="Exy mascot" width="48" /><br />exe.dev</a>
-</p>
+MIT, matching the upstream project. See [LICENSE](LICENSE).

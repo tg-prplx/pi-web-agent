@@ -2,9 +2,9 @@ import type { ProviderHeaders } from "../types.ts";
 
 export function headersToRecord(headers: Headers): Record<string, string> {
 	const result: Record<string, string> = {};
-	for (const [key, value] of headers.entries()) {
+	headers.forEach((value, key) => {
 		result[key] = value;
-	}
+	});
 	return result;
 }
 

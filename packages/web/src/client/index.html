@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ru">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="theme-color" content="#101111" />
+		<title>Pi Web Agent</title>
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="stylesheet" href="/styles.css" />
+	</head>
+	<body>
+		<div class="app-shell" id="app">
+			<aside class="sidebar" aria-label="Чаты">
+				<div class="brand-row">
+					<a class="brand" href="/" aria-label="Pi Web Agent">
+						<span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+						<span>pi<span class="brand-muted">.web</span></span>
+					</a>
+					<button class="icon-button sidebar-fold" id="toggle-sidebar-fold" aria-label="Свернуть список чатов" aria-expanded="true" title="Свернуть список чатов">‹</button>
+					<button class="icon-button mobile-only" id="close-sidebar" aria-label="Закрыть список чатов">×</button>
+				</div>
+				<button class="new-chat" id="new-chat" title="Новый чат"><span class="new-chat-icon">+</span><span class="new-chat-label">Новый чат</span><kbd>⌘ N</kbd></button>
+				<div class="chat-navigation">
+					<div class="nav-heading"><span>Чаты</span><span id="chat-count"></span></div>
+					<nav class="chat-list" id="chat-list" aria-label="Список чатов"></nav>
+				</div>
+				<div class="sidebar-footer">
+					<div class="local-status"><span class="pulse"></span> Локальный агент</div>
+					<div class="version" id="version">Проверка сервера…</div>
+				</div>
+			</aside>
+
+			<main class="conversation" id="conversation">
+				<header class="topbar">
+					<button class="icon-button mobile-only" id="open-sidebar" aria-label="Открыть список чатов">☰</button>
+					<div class="model-menu-wrap">
+						<button class="model-button" id="model-button" disabled>
+							<span class="model-dot"></span><span id="model-name">Модель</span><span class="chevron">⌄</span>
+						</button>
+						<div class="model-menu" id="model-menu" hidden></div>
+					</div>
+					<div class="chat-heading">
+						<div class="chat-title" id="chat-title">Pi Web Agent</div>
+						<div class="chat-presence" id="chat-presence">Готов к работе</div>
+					</div>
+					<div class="topbar-actions">
+						<button class="icon-button command-button" id="command-button" aria-label="Открыть команды Pi">⌘</button>
+						<button class="icon-button" id="rename-chat" aria-label="Переименовать чат">✎</button>
+						<button class="icon-button" id="delete-chat" aria-label="Удалить чат">⌫</button>
+						<button class="icon-button" id="toggle-inspector" aria-label="Показать сведения об агенте">ⓘ</button>
+					</div>
+				</header>
+
+				<section class="messages" id="messages" aria-live="polite"></section>
+				<div class="activity-bar" id="activity-bar" hidden></div>
+
+				<section class="composer-region" aria-label="Новое сообщение">
+					<div class="extension-widgets" id="widgets-above"></div>
+					<div class="attachment-strip" id="attachment-strip"></div>
+					<div class="composer" id="composer">
+						<button class="delivery-button" id="delivery-button" aria-label="Режим отправки" title="Режим отправки" hidden>↳</button>
+						<button class="attach-button" id="attach-button" aria-label="Прикрепить изображение">＋</button>
+						<input id="image-input" type="file" accept="image/*" multiple hidden />
+						<textarea id="prompt" rows="1" placeholder="Попросите Pi что-нибудь сделать…" disabled></textarea>
+						<button class="send-button" id="send-button" disabled aria-label="Отправить сообщение">↑</button>
+					</div>
+					<div class="composer-hints"><span><kbd>Enter</kbd> отправить · <kbd>Shift Enter</kbd> новая строка</span><span>Изображения остаются в контексте Pi</span></div>
+					<div class="extension-widgets" id="widgets-below"></div>
+				</section>
+			</main>
+
+			<aside class="inspector" id="inspector" aria-label="Сведения об агенте">
+				<div class="inspector-header">
+					<div class="inspector-heading">
+						<span class="inspector-kicker">Pi workspace</span>
+						<span class="inspector-title">Контекст</span>
+					</div>
+					<button class="icon-button" id="close-inspector" aria-label="Закрыть сведения">×</button>
+				</div>
+				<div class="inspector-status-row">
+					<span class="inspector-status" id="inspector-status">Ожидает сессию</span>
+					<span class="inspector-hint">Локальный агент</span>
+				</div>
+				<div class="agent-state" id="agent-state"></div>
+				<div class="context-section inspector-environment">
+					<div class="section-label">Среда</div>
+					<div class="detail-label">Рабочая папка</div>
+					<div class="workspace-value">
+						<button class="cwd-value" id="cwd-value" title="Скопировать путь">—</button>
+						<button class="workspace-change" id="change-workspace" type="button">Сменить</button>
+					</div>
+					<div class="detail-label session-label">Сессия</div>
+					<div class="session-value" id="session-value">—</div>
+				</div>
+				<details class="inspector-settings">
+					<summary>
+						<span>Поведение агента</span>
+						<small>Мышление и очередь</small>
+					</summary>
+					<div class="agent-controls">
+						<label class="setting-field">Мышление<select id="thinking-level" disabled></select></label>
+						<label class="setting-field">Steer<select id="steering-mode" disabled><option value="all">все сразу</option><option value="one-at-a-time">по одному</option></select></label>
+						<label class="setting-field">Follow-up<select id="follow-up-mode" disabled><option value="all">все сразу</option><option value="one-at-a-time">по одному</option></select></label>
+						<label class="setting-toggle"><input id="auto-compact" type="checkbox" disabled /><span>Автосжатие контекста</span></label>
+						<label class="setting-toggle"><input id="auto-retry" type="checkbox" disabled /><span>Повторять ошибки модели</span></label>
+					</div>
+				</details>
+				<div class="inspector-action-section">
+					<div class="section-label">Действия сессии</div>
+					<div class="inspector-actions">
+						<button class="secondary-action" id="compact-button" disabled>Сжать контекст</button>
+						<button class="secondary-action" id="clone-button" disabled>Клонировать сессию</button>
+						<button class="secondary-action" id="fork-button" disabled>Создать ветку</button>
+						<button class="secondary-action" id="export-button" disabled>Экспортировать HTML</button>
+						<button class="secondary-action" id="tree-button" disabled>Дерево сессии</button>
+						<button class="danger-action" id="abort-button" disabled>Остановить ответ</button>
+					</div>
+				</div>
+				<div class="inspector-note">Pi работает на этом компьютере. Ключи и доступ к файлам не уходят в браузер.</div>
+			</aside>
+		</div>
+		<div class="scrim" id="scrim" hidden></div>
+		<div class="dialog-layer" id="dialog-layer" hidden>
+			<section class="dialog-panel" id="dialog-panel" role="dialog" aria-modal="true" aria-labelledby="dialog-title"></section>
+		</div>
+		<div class="toast-stack" id="toasts" aria-live="assertive"></div>
+		<script type="module" src="/app.js"></script>
+	</body>
+</html>
